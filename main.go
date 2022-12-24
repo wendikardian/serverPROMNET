@@ -40,7 +40,7 @@ func Routers() {
 	// router.HandleFunc("/users",
 	// 	getUser).Methods("GET")
 	router.Use(cors.New(cors.Config{
-			AllowOrigins:     []string{"https://gardenice.netlify.app/"},
+			AllowOrigins:     []string{"*"},
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 			AllowHeaders:     []string{"Content-Type"},
 			ExposeHeaders:    []string{"Content-Length"},
