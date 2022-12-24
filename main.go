@@ -69,7 +69,7 @@ func Routers() {
 	router.PUT("/updateTransaksi/:id", updateTransaksi)
 	router.PUT("/updateStore/:id", updateStoreHandler)
 	
-	router.Run(":8081")
+	router.Run("")
 	// router.HandleFunc("/users/{id}",
 	// 	GetUser).Methods("GET")
 	// router.HandleFunc("/users/{id}",
