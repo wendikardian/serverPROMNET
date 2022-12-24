@@ -56,12 +56,18 @@ func Routers() {
 	router.GET("/userList", getUserList)
 	router.GET("/getStore", getStore)
 	router.GET("/getComment", getComment)
+	router.GET("/getTransaksi", getTransaksi)
 	router.POST("/insertExplore", insertExplore)
 	router.POST("/insertComment", insertComment)
+	router.POST("/insertTransaksi", insertTransaksi)
+	router.POST("/insertItem", insertItem)
 	router.DELETE("/deleteExplore/:id", deleteExplore)
 	router.DELETE("/deleteComment/:id", deleteComment)
+	router.DELETE("/deleteStore/:id", deleteStore)
 	router.PUT("/updateExplore/:id", updateExploreHandler)
 	router.PUT("/updateUser/:id", updateUserHandler)
+	router.PUT("/updateTransaksi/:id", updateTransaksi)
+	router.PUT("/updateStore/:id", updateStoreHandler)
 	
 	router.Run(":8081")
 	// router.HandleFunc("/users/{id}",
@@ -282,6 +288,32 @@ func deteteExploreDB(id int) error {
 	return nil
 }
 
+
+func deleteStore(c *gin.Context) {
+	id := c.Param("id")
+	itemID, err := strconv.Atoi(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+	err = deleteStoreDB(itemID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Item deleted successfully"})
+}
+
+func deleteStoreDB(id int) error {
+	
+	_, err = db.Exec("DELETE FROM store WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func deleteComment(c *gin.Context) {
 	id := c.Param("id")
 	itemID, err := strconv.Atoi(id)
@@ -396,6 +428,66 @@ func updateDataExplore(id string, data UpdatePostingan) error {
 	return nil
 }
 
+
+
+func updateStoreHandler(c *gin.Context) {
+	id := c.Param("id")
+
+	var data Store
+	if err := c.BindJSON(&data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := updateDataStore(id, data); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Data updated successfully"})
+}
+
+func updateDataStore(id string, data Store) error {
+	fmt.Println(id)
+	fmt.Println(data.Title)
+	fmt.Println(data.Desc)
+	fmt.Println(data.Image)
+	fmt.Println(data.Price)
+	query := "UPDATE `store` SET `title` = ?, `desc` = ?, `image` = ?, `price` = ?  WHERE `store`.`id` = ?;"
+	_, err = db.Exec(query, data.Title, data.Desc, data.Image, data.Price, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+
+func updateTransaksi(c *gin.Context) {
+	id := c.Param("id")
+
+	var data Transaksi
+	if err := c.BindJSON(&data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := updateTransaksiHandler(id, data); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Data updated successfully"})
+}
+
+func updateTransaksiHandler(id string, data Transaksi) error {
+	query := `UPDATE transaksi SET process = ? WHERE id = ?`
+	_, err = db.Exec(query, data.Process, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func updateUserHandler(c *gin.Context) {
 	id := c.Param("id")
 
@@ -449,6 +541,60 @@ func addComment(comment Comment) {
 }
 
 
+func insertItem(c *gin.Context) {
+	var store Store
+	
+	if err := c.ShouldBindJSON(&store); err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+	} else {
+		addItem(store)
+		c.IndentedJSON(http.StatusCreated, store)
+	}
+}
+
+func addItem(store Store) {
+	fmt.Println(string(store.Title))
+	fmt.Println(string(store.Desc))
+	fmt.Println(store.User_id)
+	fmt.Println(string(store.Image))
+	fmt.Println(store.Date)
+	fmt.Println(store.Price)
+	insert, err := db.Query(
+		"INSERT INTO `store` (`id`, `title`, `desc`, `user_id`, `image`, `date`, `price`) VALUES (NULL, ?,?,?,?,?,?)",
+		store.Title, store.Desc, store.User_id, store.Image, store.Date, store.Price)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer insert.Close()
+}
+
+func insertTransaksi(c *gin.Context) {
+	var transaksi Transaksi
+	
+	if err := c.ShouldBindJSON(&transaksi); err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+	} else {
+		addTransaksi(transaksi)
+		c.IndentedJSON(http.StatusCreated, transaksi)
+	}
+}
+
+func addTransaksi(transaksi Transaksi) {
+
+	insert, err := db.Query(
+		"INSERT INTO transaksi (user_id, item_id, quantity, process, date) VALUES (?,?,?,?, ?)",
+		transaksi.User_id, transaksi.Item_id, transaksi.Quantity, transaksi.Process, transaksi.Date)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer insert.Close()
+}
+
+
 func getStore(c *gin.Context) {
 	code := c.Param("code")
 
@@ -463,7 +609,7 @@ func getStore(c *gin.Context) {
 
 func getStoreData(code string) []Store {
 	var stores []Store
-	result, err := db.Query("SELECT * FROM store")
+	result, err := db.Query("SELECT * FROM store ORDER BY id DESC")
 
 	if err != nil {
 		fmt.Println("Err", err.Error())
@@ -480,6 +626,39 @@ func getStoreData(code string) []Store {
 	}
 
 	return stores
+}
+
+func getTransaksi(c *gin.Context) {
+	code := c.Param("code")
+
+	transaksi := getTransaksiData(code)
+
+	if transaksi == nil {
+		c.AbortWithStatus(http.StatusNotFound)
+	} else {
+		c.IndentedJSON(http.StatusOK, transaksi)
+	}
+}
+
+func getTransaksiData(code string) []Transaksi {
+	var listTransaksi []Transaksi
+	result, err := db.Query("SELECT * FROM transaksi ORDER BY id DESC")
+
+	if err != nil {
+		fmt.Println("Err", err.Error())
+		return nil
+	}
+
+	for result.Next() {
+		var transaksi Transaksi
+		err := result.Scan(&transaksi.ID, &transaksi.User_id, &transaksi.Item_id, &transaksi.Quantity, &transaksi.Process, &transaksi.Date)
+		if err != nil {
+			panic(err.Error())
+		}
+		listTransaksi = append(listTransaksi, transaksi)
+	}
+
+	return listTransaksi
 }
 func getComment(c *gin.Context) {
 	code := c.Param("code")
@@ -669,10 +848,10 @@ type Store struct{
 	ID int `json:"id"`
 	Title string `json:"title"`
 	Desc string `json:"desc"`
-	User_id int `json:"user_id"`
+	User_id int64 `json:"user_id"`
 	Image string `json:"image"`
-	Date int `json:"date"`
-	Price int `json:"price"`
+	Date int64 `json:"date"`
+	Price int64 `json:"price"`
 }
 
 type User struct {
@@ -699,6 +878,15 @@ type UserData struct {
 	Gender string `json:"gender"`
 	Roles     int `json:"roles"`
 	Image string `json:"image"`
+}
+
+type Transaksi struct {
+	ID        int64 `json:"id"`
+	User_id int64 `json:"user_id"`
+	Item_id  int64 `json:"item_id"`
+	Quantity int64 `json:"quantity"`
+	Process     int64 `json:"process"`
+	Date int64 `json:"date"`
 }
 
 //Db configuration
